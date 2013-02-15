@@ -35,7 +35,6 @@ PRODUCT_PACKAGES += \
     MediaProvider \
     PDroid \
     PackageInstaller \
-    PhotoTable \
     PicoTts \
     SettingsProvider \
     SharedStorageBackup \
