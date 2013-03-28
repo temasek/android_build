@@ -140,9 +140,9 @@ function setpaths()
     export ANDROID_EABI_TOOLCHAIN=
     local ARCH=$(get_build_var TARGET_ARCH)
     case $ARCH in
-        x86) toolchaindir=${HOME}/temasek/linaro46/bin
+        x86) toolchaindir=x86/i686-linux-android-4.6/bin
             ;;
-        arm) toolchaindir=${HOME}/temasek/linaro46/bin
+        arm) toolchaindir=arm/arm-linux-androideabi-4.6/bin
             ;;
         mips) toolchaindir=mips/mipsel-linux-android-4.6/bin
             ;;
