@@ -693,28 +693,16 @@ function eat()
         adb root
         sleep 1
         adb wait-for-device
-        SZ=`stat -c %s $ZIPPATH`
-        CACHESIZE=`adb shell busybox df -PB1 /cache | grep /cache | tr -s ' ' | cut -d ' ' -f 4`
-        if [ $CACHESIZE -gt $SZ ];
-        then
-            PUSHDIR=/cache/
-            DIR=cache
-        else
-            PUSHDIR=/storage/sdcard0/
-             # Optional path for sdcard0 in recovery
-             [ -z "$1" ] && DIR=sdcard/0 || DIR=$1
-        fi
-        echo "Pushing $ZIPFILE to $PUSHDIR"
-        if adb push $ZIPPATH $PUSHDIR ; then
-            cat << EOF > /tmp/command
---update_package=/$DIR/$ZIPFILE
+        cat << EOF > /tmp/command
+--sideload
 EOF
-            if adb push /tmp/command /cache/recovery/ ; then
-                echo "Rebooting into recovery for installation"
-                adb reboot recovery
-            fi
-            rm /tmp/command
+        if adb push /tmp/command /cache/recovery/ ; then
+            echo "Rebooting into recovery for sideload installation"
+            adb reboot recovery
+            adb wait-for-sideload
+            adb sideload $ZIPPATH
         fi
+        rm /tmp/command
     else
         echo "Nothing to eat"
         return 1
@@ -792,10 +780,17 @@ function findmakefile()
 
 function mm()
 {
+    local MM_MAKE=make
+    local ARG=
+    for ARG in $@ ; do
+        if [ "$ARG" = mka ]; then
+            MM_MAKE=mka
+        fi
+    done
     # If we're sitting in the root of the build tree, just do a
     # normal make.
     if [ -f build/core/envsetup.mk -a -f Makefile ]; then
-        make $@
+        $MM_MAKE $@
     else
         # Find the closest Android.mk file.
         T=$(gettop)
@@ -807,13 +802,14 @@ function mm()
         elif [ ! "$M" ]; then
             echo "Couldn't locate a makefile from the current directory."
         else
-            ONE_SHOT_MAKEFILE=$M make -C $T all_modules $@
+            ONE_SHOT_MAKEFILE=$M $MM_MAKE -C $T all_modules $@
         fi
     fi
 }
 
 function mmm()
 {
+    local MMM_MAKE=make
     T=$(gettop)
     if [ "$T" ]; then
         local MAKEFILE=
@@ -848,13 +844,15 @@ function mmm()
                     ARGS="$ARGS dist"
                 elif [ "$DIR" = incrementaljavac ]; then
                     ARGS="$ARGS incrementaljavac"
+                elif [ "$DIR" = mka ]; then
+                    MMM_MAKE=mka
                 else
                     echo "No Android.mk in $DIR."
                     return 1
                 fi
             fi
         done
-        ONE_SHOT_MAKEFILE="$MAKEFILE" make -C $T $DASH_ARGS $MODULES $ARGS
+        ONE_SHOT_MAKEFILE="$MAKEFILE" $MMM_MAKE -C $T $DASH_ARGS $MODULES $ARGS
     else
         echo "Couldn't locate the top of the tree.  Try setting TOP."
     fi
