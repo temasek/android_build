@@ -59,11 +59,17 @@ parser.add_argument('change_number', nargs='+', help='change number to cherry pi
 parser.add_argument('-i', '--ignore-missing', action='store_true', help='do not error out if a patch applies to a missing directory')
 parser.add_argument('-s', '--start-branch', nargs=1, help='start the specified branch before cherry picking')
 parser.add_argument('-a', '--abandon-first', action='store_true', help='before cherry picking, abandon the branch specified in --start-branch')
-parser.add_argument('-q', '--quiet', '-q', action='store_true', help='print as little as possible')
-parser.add_argument('-v', '--verbose', '-v', action='store_true', help='print extra information to aid in debug')
+parser.add_argument('-b', '--auto-branch', action='store_true', help='shortcut to "--start-branch auto --abandon-first --ignore-missing"')
+parser.add_argument('-q', '--quiet', action='store_true', help='print as little as possible')
+parser.add_argument('-v', '--verbose', action='store_true', help='print extra information to aid in debug')
 args = parser.parse_args()
 if args.start_branch == None and args.abandon_first:
     parser.error('if --abandon-first is set, you must also give the branch name with --start-branch')
+if args.auto_branch:
+    args.abandon_first = True
+    args.ignore_missing = True
+    if not args.start_branch:
+        args.start_branch = ['auto']
 if args.quiet and args.verbose:
     parser.error('--quiet and --verbose cannot be specified together')
 
@@ -103,6 +109,12 @@ def execute_cmd(cmd):
             print('\nCommand that failed:\n%s' % cmd)
         sys.exit(1)
 
+# Verifies whether pathA is a subdirectory (or the same) as pathB
+def is_pathA_subdir_of_pathB(pathA, pathB):
+    pathA = os.path.realpath(pathA) + '/'
+    pathB = os.path.realpath(pathB) + '/'
+    return(pathB == pathA[:len(pathB)])
+
 # Find the necessary bins - repo
 repo_bin = which('repo')
 if repo_bin == None:
@@ -117,22 +129,34 @@ if not is_exe(git_bin):
     sys.stderr.write('ERROR: Could not find the git program in $PATH\n')
     sys.exit(1)
 
+# Change current directory to the top of the tree
+if 'ANDROID_BUILD_TOP' in os.environ:
+    top = os.environ['ANDROID_BUILD_TOP']
+    if not is_pathA_subdir_of_pathB(os.getcwd(), top):
+        sys.stderr.write('ERROR: You must run this tool from within $ANDROID_BUILD_TOP!\n')
+        sys.exit(1)
+    os.chdir(os.environ['ANDROID_BUILD_TOP'])
+
+# Sanity check that we are being run from the top level of the tree
+if not os.path.isdir('.repo'):
+    sys.stderr.write('ERROR: No .repo directory found. Please run this from the top of your tree.\n')
+    sys.exit(1)
+
 # If --abandon-first is given, abandon the branch before starting
 if args.abandon_first:
     # Determine if the branch already exists; skip the abandon if it does not
     plist = subprocess.Popen([repo_bin,"info"], stdout=subprocess.PIPE)
     needs_abandon = False
     while(True):
-        retcode = plist.poll()
         pline = plist.stdout.readline().rstrip()
+        if not pline:
+            break
         matchObj = re.match(r'Local Branches.*\[(.*)\]', pline.decode())
         if matchObj:
             local_branches = re.split('\s*,\s*', matchObj.group(1))
             if any(args.start_branch[0] in s for s in local_branches):
                 needs_abandon = True
                 break
-        if(retcode is not None):
-            break
 
     if needs_abandon:
         # Perform the abandon only if the branch already exists
@@ -153,11 +177,11 @@ for change in args.change_number:
     # gerrit returns two lines, a magic string and then valid JSON:
     #   )]}'
     #   [ ... valid JSON ... ]
-    url = 'http://review.cyanogenmod.com/changes/?q=%s&o=CURRENT_REVISION&o=CURRENT_COMMIT&pp=0' % change
+    url = 'http://review.cyanogenmod.org/changes/?q=%s&o=CURRENT_REVISION&o=CURRENT_COMMIT&pp=0' % change
     if args.verbose:
         print('Fetching from: %s\n' % url)
     f = urllib.request.urlopen(url)
-    d = f.read().decode()
+    d = f.read().decode("utf-8")
 
     # Parse the result
     if args.verbose:
@@ -185,14 +209,16 @@ for change in args.change_number:
     #   - convert the project name to a project path
     plist = subprocess.Popen([repo_bin,"list"], stdout=subprocess.PIPE)
     while(True):
-        retcode = plist.poll()
         pline = plist.stdout.readline().rstrip()
+        if not pline:
+            break
         ppaths = re.split('\s*:\s*', pline.decode())
         if ppaths[1] == project_name:
             project_path = ppaths[0]
             break
-        if(retcode is not None):
-            break
+    if 'project_path' not in locals():
+        sys.stderr.write('ERROR: Could not determine the project path for project %s\n' % project_name)
+        sys.exit(1)
 
     # Check that the project path exists
     if not os.path.isdir(project_path):
