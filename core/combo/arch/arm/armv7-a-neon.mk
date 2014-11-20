@@ -7,7 +7,7 @@ ARCH_ARM_HAVE_VFP_D32           := true
 ARCH_ARM_HAVE_NEON              := true
 
 ifeq ($(TARGET_CPU_VARIANT),$(filter $(TARGET_CPU_VARIANT),cortex-a15 krait))
-	arch_variant_cflags := -mcpu=cortex-a15 -mfpu=neon-vfpv4
+	arch_variant_cflags := -mcpu=cortex-a15 -mfpu=neon-vfpv4 --param l1-cache-size=16 --param l1-cache-line-size=16 --param l2-cache-size=2048
 else
 ifeq ($(strip $(TARGET_CPU_VARIANT)),cortex-a9)
 	arch_variant_cflags := -mcpu=cortex-a9 -mfpu=neon
