@@ -117,7 +117,7 @@ TARGET_GLOBAL_CFLAGS += \
 			-Wstrict-aliasing=2 \
 			-fgcse-after-reload \
 			-frerun-cse-after-loop \
-			-frename-registers $(BOARD_GLOBAL_CFLAGS)
+			-frename-registers
 
 # arter97
 TARGET_GLOBAL_CFLAGS += \
