@@ -112,7 +112,7 @@ $(combo_2nd_arch_prefix)TARGET_GLOBAL_CFLAGS += \
 			-I $(dir $(android_config_h))
 
 # More flags/options can be added here
-TARGET_GLOBAL_CFLAGS += \
+$(combo_2nd_arch_prefix)TARGET_GLOBAL_CFLAGS += \
 			-DNDEBUG \
 			-Wstrict-aliasing=2 \
 			-fgcse-after-reload \
@@ -120,7 +120,7 @@ TARGET_GLOBAL_CFLAGS += \
 			-frename-registers
 
 # arter97
-TARGET_GLOBAL_CFLAGS += \
+$(combo_2nd_arch_prefix)TARGET_GLOBAL_CFLAGS += \
 			-w \
 			-O3 \
 			-fno-inline-functions \
