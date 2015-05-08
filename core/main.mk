@@ -151,13 +151,13 @@ javac_version_str := $(shell unset _JAVA_OPTIONS && unset JAVA_TOOL_OPTIONS && j
 ifeq ($(LEGACY_USE_JAVA6),)
 required_version := "1.7.x/1.8.x"
 required_javac_version := "1.7/1.8"
-java_version := $(shell echo '$(java_version_str)' | grep -E '^(java|openjdk) .*[ "]1\.[78][\.*_ "$$]')
-javac_version := $(shell echo '$(javac_version_str)' | grep '[ "]1\.[78][\.*_ "$$]')
+java_version := $(shell echo '$(java_version_str)' | grep -E '^(java|openjdk) .*[ "]1\.[78][\. "$$]')
+javac_version := $(shell echo '$(javac_version_str)' | grep '[ "]1\.[78][\. "$$]')
 else # if LEGACY_USE_JAVA6
 required_version := "1.6.x"
 required_javac_version := "1.6"
-java_version := $(shell echo '$(java_version_str)' | grep '^java .*[ "]1\.6[\.*_ "$$]')
-javac_version := $(shell echo '$(javac_version_str)' | grep '[ "]1\.6[\.*_ "$$]')
+java_version := $(shell echo '$(java_version_str)' | grep '^java .*[ "]1\.6[\. "$$]')
+javac_version := $(shell echo '$(javac_version_str)' | grep '[ "]1\.6[\. "$$]')
 endif # if LEGACY_USE_JAVA6
 
 ifeq ($(strip $(java_version)),)
