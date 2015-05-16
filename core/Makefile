@@ -1707,7 +1707,7 @@ bacon: otapackage
 ifeq ($(USE_PREBUILT_CHROMIUM),1)
 ifneq ($(PRODUCT_PREBUILT_WEBVIEWCHROMIUM),yes)
 	@echo "Running Chromium prebuilt setup script..."
-	$(hide) . $(TOPDIR)vendor/cm/utils/chromium_prebuilt.sh $(TOP)
+	$(hide) . $(TOPDIR)vendor/pa/utils/chromium_prebuilt.sh $(TOP)
 endif
 endif
 
