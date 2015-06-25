@@ -61,6 +61,7 @@ PRODUCT_PACKAGES += \
     lmkd \
     logcat \
     logwrapper \
+    lz4 \
     mkshrc \
     reboot \
     service \
