@@ -124,7 +124,6 @@ $(combo_2nd_arch_prefix)TARGET_GLOBAL_CFLAGS += \
 			-w \
 			-O3 \
 			-fno-inline-functions \
-			-funroll-loops \
 			-mvectorize-with-neon-quad
 
 # This is to avoid the dreaded warning compiler message:
