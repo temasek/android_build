@@ -633,7 +633,7 @@ def WriteFullOTAPackage(input_zip, output_zip):
     system_diff.WriteScript(script, output_zip)
   else:
     script.FormatPartition("/system")
-    script.Mount("/system", recovery_mount_options)
+    script.Mount("/system")
     if OPTIONS.recovery and not has_recovery_patch:
       script.UnpackPackageDir("recovery", "/system")
     script.UnpackPackageDir("system", "/system")
