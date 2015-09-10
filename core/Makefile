@@ -482,14 +482,14 @@ BUILT_RAMDISK_TARGET := $(PRODUCT_OUT)/ramdisk.img
 
 # We just build this directly to the install location.
 INSTALLED_RAMDISK_TARGET := $(BUILT_RAMDISK_TARGET)
-$(INSTALLED_RAMDISK_TARGET): $(MKBOOTFS) $(INTERNAL_RAMDISK_FILES) | $(MINIGZIP)
+$(INSTALLED_RAMDISK_TARGET): $(MKBOOTFS) $(INTERNAL_RAMDISK_FILES) | $(RD_COMPRESSOR)
 	$(call pretty,"Target ram disk: $@")
-	$(hide) $(MKBOOTFS) $(TARGET_ROOT_OUT) | $(MINIGZIP) > $@
+	$(hide) $(MKBOOTFS) $(TARGET_ROOT_OUT) | $(RD_COMPRESSOR_CMD) > $@
 
 .PHONY: ramdisk-nodeps
-ramdisk-nodeps: $(MKBOOTFS) | $(MINIGZIP)
+ramdisk-nodeps: $(MKBOOTFS) | $(RD_COMPRESSOR)
 	@echo "make $@: ignoring dependencies"
-	$(hide) $(MKBOOTFS) $(TARGET_ROOT_OUT) | $(MINIGZIP) > $(INSTALLED_RAMDISK_TARGET)
+	$(hide) $(MKBOOTFS) $(TARGET_ROOT_OUT) | $(RD_COMPRESSOR_CMD) > $(INSTALLED_RAMDISK_TARGET)
 
 ifneq ($(strip $(TARGET_NO_KERNEL)),true)
 
@@ -930,7 +930,7 @@ $(RECOVERY_INSTALL_OTA_KEYS): $(OTA_PUBLIC_KEYS) $(DUMPKEY_JAR) $(extra_keys)
 	@mkdir -p $(dir $@)
 	java -jar $(DUMPKEY_JAR) $(PRIVATE_OTA_PUBLIC_KEYS) $(extra_keys) > $@
 
-$(recovery_ramdisk): $(MKBOOTFS) $(MINIGZIP) $(RECOVERYIMAGE_EXTRA_DEPS) \
+$(recovery_ramdisk): $(MKBOOTFS) $(RD_COMPRESSOR) $(RECOVERYIMAGE_EXTRA_DEPS) \
 		$(INSTALLED_RAMDISK_TARGET) \
 		$(INSTALLED_BOOTIMAGE_TARGET) \
 		$(recovery_binary) \
@@ -964,9 +964,9 @@ $(recovery_ramdisk): $(MKBOOTFS) $(MINIGZIP) $(RECOVERYIMAGE_EXTRA_DEPS) \
 	$(hide) cp $(RECOVERY_INSTALL_OTA_KEYS) $(TARGET_RECOVERY_ROOT_OUT)/res/keys
 	$(hide) cat $(INSTALLED_DEFAULT_PROP_TARGET) $(recovery_build_prop) \
 	        > $(TARGET_RECOVERY_ROOT_OUT)/default.prop
-	$(hide) $(MKBOOTFS) $(TARGET_RECOVERY_ROOT_OUT) | $(MINIGZIP) > $(recovery_ramdisk)
+	$(hide) $(MKBOOTFS) $(TARGET_RECOVERY_ROOT_OUT) | $(RD_COMPRESSOR_CMD) > $(recovery_ramdisk)
 
-$(recovery_uncompressed_ramdisk): $(MINIGZIP) $(recovery_ramdisk)
+$(recovery_uncompressed_ramdisk): $(RD_COMPRESSOR) $(recovery_ramdisk)
 	@echo -e ${CL_CYN}"----- Making uncompressed recovery ramdisk ------"${CL_RST}
 	$(MKBOOTFS) $(TARGET_RECOVERY_ROOT_OUT) > $@
 
@@ -1383,6 +1383,7 @@ endif
 # host tools needed to build dist and OTA packages
 
 DISTTOOLS :=  $(HOST_OUT_EXECUTABLES)/minigzip \
+	  $(HOST_OUT_EXECUTABLES)/lz4 \
 	  $(HOST_OUT_EXECUTABLES)/adb \
 	  $(HOST_OUT_EXECUTABLES)/mkbootfs \
 	  $(HOST_OUT_EXECUTABLES)/mkbootimg \
@@ -1403,7 +1404,7 @@ DISTTOOLS :=  $(HOST_OUT_EXECUTABLES)/minigzip \
 	  $(HOST_OUT_EXECUTABLES)/append2simg \
 	  $(HOST_OUT_EXECUTABLES)/boot_signer
 
-ifeq ($(HOST_OS),linux)
+ifneq (,$(filter linux darwin,$(HOST_OS)))
   DISTTOOLS += $(HOST_OUT_EXECUTABLES)/mkf2fsuserimg.sh \
 	$(HOST_OUT_EXECUTABLES)/make_f2fs
 endif
@@ -1480,6 +1481,7 @@ endif
 
 # Depending on the various images guarantees that the underlying
 # directories are up-to-date.
+include $(BUILD_SYSTEM)/tasks/oem_image.mk
 $(BUILT_TARGET_FILES_PACKAGE): \
 		$(INSTALLED_BOOTIMAGE_TARGET) \
 		$(INSTALLED_RADIOIMAGE_TARGET) \
@@ -1488,6 +1490,7 @@ $(BUILT_TARGET_FILES_PACKAGE): \
 		$(INSTALLED_USERDATAIMAGE_TARGET) \
 		$(INSTALLED_CACHEIMAGE_TARGET) \
 		$(INSTALLED_VENDORIMAGE_TARGET) \
+		$(INSTALLED_OEMIMAGE_TARGET) \
 		$(INSTALLED_ANDROID_INFO_TXT_TARGET) \
 		$(SELINUX_FC) \
 		$(built_ota_tools) \
@@ -1590,6 +1593,11 @@ ifdef BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE
 	@# Contents of the vendor image
 	$(hide) $(call package_files-copy-root, \
 		$(TARGET_OUT_VENDOR),$(zip_root)/VENDOR)
+endif
+ifdef BOARD_OEMIMAGE_FILE_SYSTEM_TYPE
+	@# Contents of the oem image
+	$(call package_files-copy-root, \
+		$(TARGET_OUT_OEM),$(zip_root)/OEM)
 endif
 	@# Extra contents of the OTA package
 	$(hide) mkdir -p $(zip_root)/OTA/bin

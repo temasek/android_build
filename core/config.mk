@@ -369,8 +369,11 @@ endif
 
 # ---------------------------------------------------------------
 # Generic tools.
-
-LEX := prebuilts/misc/$(BUILD_OS)-$(HOST_PREBUILT_ARCH)/flex/flex-2.5.39
+ifeq ($(USE_HOST_LEX),yes)
+    LEX := flex
+else
+    LEX := prebuilts/misc/$(BUILD_OS)-$(HOST_PREBUILT_ARCH)/flex/flex-2.5.39
+endif
 # The default PKGDATADIR built in the prebuilt bison is a relative path
 # external/bison/data.
 # To run bison from elsewhere you need to set up enviromental variable
@@ -388,6 +391,14 @@ PROTOC := $(HOST_OUT_EXECUTABLES)/aprotoc$(HOST_EXECUTABLE_SUFFIX)
 SIGNAPK_JAR := $(HOST_OUT_JAVA_LIBRARIES)/signapk$(COMMON_JAVA_PACKAGE_SUFFIX)
 MKBOOTFS := $(HOST_OUT_EXECUTABLES)/mkbootfs$(HOST_EXECUTABLE_SUFFIX)
 MINIGZIP := $(HOST_OUT_EXECUTABLES)/minigzip$(HOST_EXECUTABLE_SUFFIX)
+LZ4 := $(HOST_OUT_EXECUTABLES)/lz4$(HOST_EXECUTABLE_SUFFIX)
+ifeq (,$(strip $(BOARD_USE_LZ4_RD_COMPRESSOR)))
+RD_COMPRESSOR := $(MINIGZIP)
+RD_COMPRESSOR_CMD := $(MINIGZIP)
+else
+RD_COMPRESSOR := $(LZ4)
+RD_COMPRESSOR_CMD :=$(LZ4) -l -9
+endif
 ifeq (,$(strip $(BOARD_CUSTOM_MKBOOTIMG)))
 MKBOOTIMG := $(HOST_OUT_EXECUTABLES)/mkbootimg$(HOST_EXECUTABLE_SUFFIX)
 else
