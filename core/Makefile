@@ -1892,7 +1892,12 @@ $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) $(DISTTOOLS)
 	   $(if $(OEM_OTA_CONFIG), -o $(OEM_OTA_CONFIG)) \
 	   $(BUILT_TARGET_FILES_PACKAGE) $@
 
-CM_TARGET_PACKAGE := $(PRODUCT_OUT)/cm-$(CM_VERSION).zip
+ifeq ($(TARGET_UNOFFICIAL_BUILD_ID),temasek)
+      TEMASEK_VERSION := $(shell grep temasek_version_default ./packages/apps/Settings/res/values/cr_strings.xml | cut -dV -f2 | cut -d"<" -f1)
+    CM_TARGET_PACKAGE := $(PRODUCT_OUT)/cm-$(CM_VERSION)-V$(TEMASEK_VERSION).zip
+else
+    CM_TARGET_PACKAGE := $(PRODUCT_OUT)/cm-$(CM_VERSION).zip
+endif
 
 .PHONY: otapackage bacon
 otapackage: $(INTERNAL_OTA_PACKAGE_TARGET)
