@@ -31,6 +31,11 @@ import threading
 import time
 import zipfile
 
+try:
+  from backports import lzma;
+except ImportError:
+  lzma = None
+
 import blockimgdiff
 import rangelib
 
@@ -1228,11 +1233,12 @@ def ComputeDifferences(diffs):
 
 class BlockDifference(object):
   def __init__(self, partition, tgt, src=None, check_first_block=False,
-               version=None):
+               version=None, use_lzma=False):
     self.tgt = tgt
     self.src = src
     self.partition = partition
     self.check_first_block = check_first_block
+    self.use_lzma = use_lzma
 
     # Due to http://b/20939131, check_first_block is disabled temporarily.
     assert not self.check_first_block
@@ -1246,7 +1252,7 @@ class BlockDifference(object):
     self.version = version
 
     b = blockimgdiff.BlockImageDiff(tgt, src, threads=OPTIONS.worker_threads,
-                                    version=self.version)
+                                    version=self.version, use_lzma=use_lzma)
     tmpdir = tempfile.mkdtemp()
     OPTIONS.tempfiles.append(tmpdir)
     self.path = os.path.join(tmpdir, partition)
@@ -1342,18 +1348,29 @@ class BlockDifference(object):
     ZipWrite(output_zip,
              '{}.transfer.list'.format(self.path),
              '{}.transfer.list'.format(self.partition))
-    ZipWrite(output_zip,
-             '{}.new.dat'.format(self.path),
-             '{}.new.dat'.format(self.partition))
+    if lzma and self.use_lzma:
+        ZipWrite(output_zip,
+                 '{}.new.dat.xz'.format(self.path),
+                 '{}.new.dat.xz'.format(self.partition))
+    else:
+        ZipWrite(output_zip,
+                 '{}.new.dat'.format(self.path),
+                 '{}.new.dat'.format(self.partition))
     ZipWrite(output_zip,
              '{}.patch.dat'.format(self.path),
              '{}.patch.dat'.format(self.partition),
              compress_type=zipfile.ZIP_STORED)
 
-    call = ('block_image_update("{device}", '
-            'package_extract_file("{partition}.transfer.list"), '
-            '"{partition}.new.dat", "{partition}.patch.dat");\n'.format(
-                device=self.device, partition=self.partition))
+    if lzma and self.use_lzma:
+        call = ('block_image_update("{device}", '
+                'package_extract_file("{partition}.transfer.list"), '
+                '"{partition}.new.dat.xz", "{partition}.patch.dat");\n'.format(
+                    device=self.device, partition=self.partition))
+    else:
+        call = ('block_image_update("{device}", '
+                'package_extract_file("{partition}.transfer.list"), '
+                '"{partition}.new.dat", "{partition}.patch.dat");\n'.format(
+                    device=self.device, partition=self.partition))
     script.AppendExtra(script.WordWrap(call))
 
   def _HashBlocks(self, source, ranges): # pylint: disable=no-self-use
