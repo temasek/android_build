@@ -190,6 +190,11 @@ ifeq ($(DONT_DEXPREOPT_PREBUILTS),true)
 LOCAL_DEX_PREOPT := false
 endif
 
+# Disable dex-preopt of specific prebuilts to save space, if requested.
+ifneq ($(filter $(DEXPREOPT_BLACKLIST),$(LOCAL_MODULE)),)
+LOCAL_DEX_PREOPT := false
+endif
+
 #######################################
 # defines built_odex along with rule to install odex
 include $(BUILD_SYSTEM)/dex_preopt_odex_install.mk
@@ -211,7 +216,9 @@ $(built_module): PRIVATE_EMBEDDED_JNI_LIBS := $(embedded_prebuilt_jni_libs)
 
 $(built_module) : $(my_prebuilt_src_file) | $(ACP) $(ZIPALIGN) $(SIGNAPK_JAR)
 	$(transform-prebuilt-to-target)
+ifneq ($(LOCAL_MODULE_PATH),$(TARGET_OUT_VENDOR)/bundled-app)
 	$(uncompress-shared-libs)
+endif
 ifneq ($(LOCAL_CERTIFICATE),PRESIGNED)
 	@# Only strip out files if we can re-sign the package.
 ifdef LOCAL_DEX_PREOPT

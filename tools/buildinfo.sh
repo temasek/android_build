@@ -37,7 +37,7 @@ echo "ro.product.cpu.abilist32=$TARGET_CPU_ABI_LIST_32_BIT"
 echo "ro.product.cpu.abilist64=$TARGET_CPU_ABI_LIST_64_BIT"
 
 echo "ro.product.manufacturer=$PRODUCT_MANUFACTURER"
-if [ -n "$PRODUCT_DEFAULT_LOCALE" ] ; then
+if [ -n "$PRODUCT_DEFAULT_LOCALE" ] && [ -z "$TARGET_SKIP_DEFAULT_LOCALE" ] ; then
   echo "ro.product.locale=$PRODUCT_DEFAULT_LOCALE"
 fi
 echo "ro.wifi.channels=$PRODUCT_DEFAULT_WIFI_CHANNELS"
@@ -46,7 +46,9 @@ echo "ro.board.platform=$TARGET_BOARD_PLATFORM"
 if [ "$TARGET_UNIFIED_DEVICE" == "" ] ; then
   echo "# ro.build.product is obsolete; use ro.product.device"
   echo "ro.build.product=$TARGET_DEVICE"
-  echo "ro.product.model=$PRODUCT_MODEL"
+  if [ -z "$TARGET_SKIP_PRODUCT_DEVICE" ] ; then
+    echo "ro.product.model=$PRODUCT_MODEL"
+  fi
   echo "ro.product.device=$TARGET_DEVICE"
   echo "# Do not try to parse description, fingerprint, or thumbprint"
   echo "ro.build.description=$PRIVATE_BUILD_DESC"

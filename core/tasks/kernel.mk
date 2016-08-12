@@ -12,7 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 # Android makefile to build kernel as a part of Android Build
+#
+# Configuration
+# =============
+#
+# These config vars are usually set in BoardConfig.mk:
+#
+#   TARGET_KERNEL_SOURCE               = Kernel source dir, optional, defaults
+#                                        to kernel/$(TARGET_DEVICE_DIR)
+#   TARGET_KERNEL_CONFIG               = Kernel defconfig
+#   TARGET_KERNEL_VARIANT_CONFIG       = Variant defconfig, optional
+#   TARGET_KERNEL_SELINUX_CONFIG       = SELinux defconfig, optional
+#   TARGET_KERNEL_ADDITIONAL_CONFIG    = Additional defconfig, optional
+#   TARGET_KERNEL_ARCH                 = Kernel Arch
+#   TARGET_KERNEL_HEADER_ARCH          = Optional Arch for kernel headers if
+#                                          different from TARGET_KERNEL_ARCH
+#   TARGET_USES_UNCOMPRESSED_KERNEL    = 'true' if Kernel is uncompressed,
+#                                          optional, defaults to false
+#   TARGET_KERNEL_CROSS_COMPILE_PREFIX = Compiler prefix (e.g. aarch64-linux-android-)
+#                                          defaults to arm-eabi-
+#
+#   BOARD_KERNEL_IMAGE_NAME            = Built image name, optional,
+#                                          defaults to Image.gz on arm64
+#                                          defaults to Image if TARGET_USES_UNCOMPRESSED_KERNEL
+#                                          defaults to zImage otherwise
+#
+#   KERNEL_TOOLCHAIN_PREFIX            = Overrides TARGET_KERNEL_CROSS_COMPILE_PREFIX,
+#                                          Set this var in shell to override
+#                                          toolchain specified in BoardConfig.mk
+#   KERNEL_TOOLCHAIN                   = Path to toolchain, if unset, assumes
+#                                          TARGET_KERNEL_CROSS_COMPILE_PREFIX
+#                                          is in PATH
+#   USE_CCACHE                         = Enable ccache (global Android flag)
+#
+#   NEED_KERNEL_MODULE_ROOT            = Optional, if true, install kernel
+#                                          modules in root instead of system
+
 
 TARGET_AUTO_KDIR := $(shell echo $(TARGET_DEVICE_DIR) | sed -e 's/^device/kernel/g')
 
@@ -159,33 +196,24 @@ else
     endif
 endif
 
-ifeq ($(BOARD_HAS_MTK_HARDWARE),true)
-  ifeq ($(BOARD_USES_MTK_KERNELBUILD),true)
-    include $(CLEAR_VARS)
-    $(shell rm -f $(TARGET_PREBUILT_INT_KERNEL))
-    FULL_KERNEL_BUILD := false
-    PROJECT_NAME := $(TARGET_KERNEL_CONFIG)
-$(TARGET_PREBUILT_INT_KERNEL):
-	cd $(TARGET_KERNEL_SOURCE) && env -i PATH=$(PATH) ./makeMtk -t -o=OUT_DIR=$(OUT_DIR),TARGET_BUILD_VARIANT=$(TARGET_BUILD_VARIANT) $(PROJECT_NAME) r k
-	-cd $(TARGET_KERNEL_SOURCE) && git clean -fd
-
-  endif
-endif
-
 ifeq ($(FULL_KERNEL_BUILD),true)
 
 KERNEL_HEADERS_INSTALL := $(KERNEL_OUT)/usr
 KERNEL_HEADERS_INSTALL_STAMP := $(KERNEL_OUT)/.headers_install_stamp
+
+ifeq ($(NEED_KERNEL_MODULE_ROOT),true)
+KERNEL_MODULES_INSTALL := root
+KERNEL_MODULES_OUT := $(TARGET_ROOT_OUT)/lib/modules
+else
 KERNEL_MODULES_INSTALL := system
 KERNEL_MODULES_OUT := $(TARGET_OUT)/lib/modules
+endif
 
 TARGET_KERNEL_CROSS_COMPILE_PREFIX := $(strip $(TARGET_KERNEL_CROSS_COMPILE_PREFIX))
 ifeq ($(TARGET_KERNEL_CROSS_COMPILE_PREFIX),)
-ifeq ($(KERNEL_TOOLCHAIN_PREFIX),)
-KERNEL_TOOLCHAIN_PREFIX := arm-eabi-
-endif
+KERNEL_TOOLCHAIN_PREFIX ?= arm-eabi-
 else
-KERNEL_TOOLCHAIN_PREFIX := $(TARGET_KERNEL_CROSS_COMPILE_PREFIX)
+KERNEL_TOOLCHAIN_PREFIX ?= $(TARGET_KERNEL_CROSS_COMPILE_PREFIX)
 endif
 
 ifeq ($(KERNEL_TOOLCHAIN),)
@@ -232,6 +260,7 @@ endif
 
 $(KERNEL_OUT_STAMP):
 	$(hide) mkdir -p $(KERNEL_OUT)
+	$(hide) rm -rf $(KERNEL_MODULES_OUT)
 	$(hide) mkdir -p $(KERNEL_MODULES_OUT)
 	$(hide) touch $@
 
@@ -242,6 +271,7 @@ $(KERNEL_ADDITIONAL_CONFIG_OUT): force_additional_config
 	$(hide) cmp -s $(KERNEL_ADDITIONAL_CONFIG_SRC) $@ || cp $(KERNEL_ADDITIONAL_CONFIG_SRC) $@;
 
 $(KERNEL_CONFIG): $(KERNEL_OUT_STAMP) $(KERNEL_DEFCONFIG_SRC) $(KERNEL_ADDITIONAL_CONFIG_OUT)
+	@echo -e ${CL_GRN}"Building Kernel Config"${CL_RST}
 	$(MAKE) $(MAKE_FLAGS) -C $(KERNEL_SRC) O=$(KERNEL_OUT) ARCH=$(KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) VARIANT_DEFCONFIG=$(VARIANT_DEFCONFIG) SELINUX_DEFCONFIG=$(SELINUX_DEFCONFIG) $(KERNEL_DEFCONFIG)
 	$(hide) if [ ! -z "$(KERNEL_CONFIG_OVERRIDE)" ]; then \
 			echo "Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE)'"; \
@@ -281,6 +311,7 @@ $(TARGET_PREBUILT_INT_KERNEL): $(TARGET_KERNEL_MODULES)
 	$(clean-module-folder)
 
 $(KERNEL_HEADERS_INSTALL_STAMP): $(KERNEL_OUT_STAMP) $(KERNEL_CONFIG)
+	@echo -e ${CL_GRN}"Building Kernel Headers"${CL_RST}
 	$(hide) if [ ! -z "$(KERNEL_HEADER_DEFCONFIG)" ]; then \
 			rm -f ../$(KERNEL_CONFIG); \
 			$(MAKE) -C $(KERNEL_SRC) O=$(KERNEL_OUT) ARCH=$(KERNEL_HEADER_ARCH) $(KERNEL_CROSS_COMPILE) VARIANT_DEFCONFIG=$(VARIANT_DEFCONFIG) SELINUX_DEFCONFIG=$(SELINUX_DEFCONFIG) $(KERNEL_HEADER_DEFCONFIG); \
@@ -308,10 +339,7 @@ kerneltags: $(KERNEL_OUT_STAMP) $(KERNEL_CONFIG)
 kernelconfig:  KERNELCONFIG_MODE := menuconfig
 kernelxconfig: KERNELCONFIG_MODE := xconfig
 kernelxconfig kernelconfig: $(KERNEL_OUT_STAMP)
-	$(MAKE) $(MAKE_FLAGS) -C $(KERNEL_SRC) O=$(KERNEL_OUT) ARCH=$(KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) VARIANT_DEFCONFIG=$(VARIANT_DEFCONFIG) SELINUX_DEFCONFIG=$(SELINUX_DEFCONFIG) $(KERNEL_DEFCONFIG)
-	$(hide) if [ ! -z "$(KERNEL_CONFIG_OVERRIDE)" ]; then \
-			echo "Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE)'"; \
-			echo $(KERNEL_CONFIG_OVERRIDE) >> $(KERNEL_OUT)/.config; fi
+	$(MAKE) $(MAKE_FLAGS) -C $(KERNEL_SRC) O=$(KERNEL_OUT) ARCH=$(KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) $(KERNEL_DEFCONFIG)
 	env KCONFIG_NOTIMESTAMP=true \
 		 $(MAKE) -C $(KERNEL_SRC) O=$(KERNEL_OUT) ARCH=$(KERNEL_ARCH) $(KERNEL_CROSS_COMPILE) $(KERNELCONFIG_MODE)
 	env KCONFIG_NOTIMESTAMP=true \

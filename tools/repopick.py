@@ -235,8 +235,14 @@ if __name__ == '__main__':
         reviews = fetch_query(args.gerrit, args.query)
         change_numbers = sorted([str(r['number']) for r in reviews])
     if args.change_number:
-        reviews = fetch_query(args.gerrit, ' OR '.join('change:{0}'.format(x.split('/')[0]) for x in args.change_number))
-        change_numbers = args.change_number
+        for c in args.change_number:
+            if '-' in c:
+                templist = c.split('-')
+                for i in range(int(templist[0]), int(templist[1]) + 1):
+                    change_numbers.append(str(i))
+            else:
+                change_numbers.append(c)
+        reviews = fetch_query(args.gerrit, ' OR '.join('change:{0}'.format(x.split('/')[0]) for x in change_numbers))
 
     # make list of things to actually merge
     mergables = []
@@ -255,7 +261,11 @@ if __name__ == '__main__':
             continue
 
         change = int(change)
-        review = [x for x in reviews if x['number'] == change][0]
+        review = next((x for x in reviews if x['number'] == change), None)
+        if review is None:
+            print('Change %d not found, skipping' % change)
+            continue
+
         mergables.append({
             'subject': review['subject'],
             'project': review['project'],
